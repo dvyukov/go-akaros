@@ -679,7 +679,7 @@ opswitch:
 		walkexprlistsafe(n.List.Slice(), init)
 		r = walkexpr(r, init)
 
-		if isIntrinsicCall(r) {
+		if isIntrinsicCall(Curfn, r) {
 			n.Right = r
 			break
 		}

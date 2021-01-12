@@ -339,7 +339,7 @@ func (v *hairyVisitor) visit(n *Node) bool {
 			}
 		}
 
-		if isIntrinsicCall(n) {
+		if isIntrinsicCall(Curfn, n) {
 			// Treat like any other node.
 			break
 		}
@@ -686,7 +686,7 @@ func inlnode(n *Node, maxCost int32, inlMap map[*Node]bool) *Node {
 		if Debug.m > 3 {
 			fmt.Printf("%v:call to func %+v\n", n.Line(), n.Left)
 		}
-		if isIntrinsicCall(n) {
+		if isIntrinsicCall(Curfn, n) {
 			break
 		}
 		if fn := inlCallee(n.Left); fn != nil && fn.Func.Inl != nil {

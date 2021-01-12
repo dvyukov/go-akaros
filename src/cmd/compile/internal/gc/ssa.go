@@ -1135,7 +1135,7 @@ func (s *state) stmt(n *Node) {
 
 	// Expression statements
 	case OCALLFUNC:
-		if isIntrinsicCall(n) {
+		if isIntrinsicCall(s.curfn, n) {
 			s.intrinsicCall(n)
 			return
 		}
@@ -1202,7 +1202,7 @@ func (s *state) stmt(n *Node) {
 
 	case OAS2FUNC:
 		// We come here only when it is an intrinsic call returning two values.
-		if !isIntrinsicCall(n.Right) {
+		if !isIntrinsicCall(s.curfn, n.Right) {
 			s.Fatalf("non-intrinsic AS2FUNC not expanded %v", n.Right)
 		}
 		v := s.intrinsicCall(n.Right)
@@ -2795,7 +2795,7 @@ func (s *state) expr(n *Node) *ssa.Value {
 		return s.newValue2(ssa.OpStringMake, n.Type, p, l)
 
 	case OCALLFUNC:
-		if isIntrinsicCall(n) {
+		if isIntrinsicCall(s.curfn, n) {
 			return s.intrinsicCall(n)
 		}
 		fallthrough
@@ -4174,7 +4174,7 @@ func init() {
 
 // findIntrinsic returns a function which builds the SSA equivalent of the
 // function identified by the symbol sym.  If sym is not an intrinsic call, returns nil.
-func findIntrinsic(sym *types.Sym) intrinsicBuilder {
+func findIntrinsic(curfn *Node, sym *types.Sym) intrinsicBuilder {
 	if sym == nil || sym.Pkg == nil {
 		return nil
 	}
@@ -4182,7 +4182,7 @@ func findIntrinsic(sym *types.Sym) intrinsicBuilder {
 	if sym.Pkg == localpkg {
 		pkg = myimportpath
 	}
-	if flag_race && pkg == "sync/atomic" {
+	if flag_race && (curfn == nil || curfn.Func.Pragma&Norace == 0) && pkg == "sync/atomic" {
 		// The race detector needs to be able to intercept these calls.
 		// We can't intrinsify them.
 		return nil
@@ -4204,16 +4204,16 @@ func findIntrinsic(sym *types.Sym) intrinsicBuilder {
 	return intrinsics[intrinsicKey{thearch.LinkArch.Arch, pkg, fn}]
 }
 
-func isIntrinsicCall(n *Node) bool {
+func isIntrinsicCall(curfn, n *Node) bool {
 	if n == nil || n.Left == nil {
 		return false
 	}
-	return findIntrinsic(n.Left.Sym) != nil
+	return findIntrinsic(curfn, n.Left.Sym) != nil
 }
 
 // intrinsicCall converts a call to a recognized intrinsic function into the intrinsic SSA operation.
 func (s *state) intrinsicCall(n *Node) *ssa.Value {
-	v := findIntrinsic(n.Left.Sym)(s, n, s.intrinsicArgs(n))
+	v := findIntrinsic(s.curfn, n.Left.Sym)(s, n, s.intrinsicArgs(n))
 	if ssa.IntrinsicsDebug > 0 {
 		x := v
 		if x == nil {
